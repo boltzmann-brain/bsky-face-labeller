@@ -4,3 +4,18 @@ cursor.txt
 *.log
 labels.db*
 bun.lockb
+
+# Face detection runtime files
+models/
+python-service.pid
+python-service.log
+cursor.txt
+labeler.log
+
+# Test files
+test-face-detection*.ts
+
+# Temporary helper scripts
+download-images-slow.sh
+download-reference-images.sh
+MANUAL_IMAGE_DOWNLOAD.md

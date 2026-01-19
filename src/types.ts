@@ -5,3 +5,21 @@ export interface Label {
   identifier: string;
   locales: LabelValueDefinitionStrings[];
 }
+
+export interface FaceMatch {
+  person: string;
+  confidence: number;
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
+
+export interface BlobRef {
+  $type: string;
+  ref: { $link: string };
+  mimeType: string;
+  size: number;
+}
