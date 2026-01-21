@@ -8,11 +8,13 @@ import {
   HOST,
   MAX_QUEUE_SIZE,
   METRICS_PORT,
+  MIN_FOLLOWER_COUNT,
   PORT,
   PROCESS_ALL_POSTS,
   WANTED_COLLECTION,
 } from './config.js';
 import { initializeFaceDetection, loadReferenceFaces } from './faceDetection.js';
+import { hasEnoughFollowers, initializeFollowerChecker } from './followerChecker.js';
 import { closeCache, getCacheStats } from './imageCache.js';
 import { hasImages, processPostImages } from './imageProcessor.js';
 import { labelPost, labelerServer } from './label.js';
@@ -58,6 +60,18 @@ async function main() {
   } catch (error) {
     logger.error(`Failed to initialize face detection: ${error}`);
     process.exit(1);
+  }
+
+  // Initialize follower checker if not processing all posts
+  if (!PROCESS_ALL_POSTS && MIN_FOLLOWER_COUNT > 0) {
+    logger.info(`Initializing follower checker (min followers: ${MIN_FOLLOWER_COUNT})...`);
+    try {
+      await initializeFollowerChecker();
+      logger.info('Follower checker initialized');
+    } catch (error) {
+      logger.error(`Failed to initialize follower checker: ${error}`);
+      process.exit(1);
+    }
   }
 
   const jetstream = new Jetstream({
@@ -112,21 +126,23 @@ async function main() {
     },
   );
 
-  jetstream.onCreate(WANTED_COLLECTION, (event: CommitCreateEvent<typeof WANTED_COLLECTION>) => {
-    // Skip processing if PROCESS_ALL_POSTS is false
-    if (!PROCESS_ALL_POSTS) {
-      // For now, skip all posts since we don't have filtering logic yet
-      // TODO: Add filtering logic (language, engagement, etc.)
-      return;
-    }
-
-    // Check if post has images
+  jetstream.onCreate(WANTED_COLLECTION, async (event: CommitCreateEvent<typeof WANTED_COLLECTION>) => {
+    // Check if post has images first (quick check)
     if (!hasImages(event.commit?.record)) {
       return;
     }
 
-    // Add to processing queue
-    processingQueue.enqueue(event);
+    // If PROCESS_ALL_POSTS is true, process everything
+    if (PROCESS_ALL_POSTS) {
+      processingQueue.enqueue(event);
+      return;
+    }
+
+    // Otherwise, check if the poster has enough followers
+    const hasFollowers = await hasEnoughFollowers(event.did);
+    if (hasFollowers) {
+      processingQueue.enqueue(event);
+    }
   });
 
   const metricsServer = startMetricsServer(METRICS_PORT);
