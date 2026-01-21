@@ -8,12 +8,11 @@ This is a Bluesky labeler that automatically detects faces of public figures in 
 
 **This project requires familiarity with TypeScript, the command line, and Linux.**
 
-## Support My Work
+## Support This Project
 
-If you find this project helpful, please consider supporting my work:
+If you find this project helpful, consider supporting development:
 
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logocolor=white)](https://ko-fi.com/aliceisjustplaying)
-[![GitHub Sponsors](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/aliceisjustplaying)
+**Venmo:** [@Leif-Hancox-Li](https://venmo.com/u/Leif-Hancox-Li)
 
 ## Prerequisites
 
