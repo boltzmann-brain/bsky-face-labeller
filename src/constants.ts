@@ -4,12 +4,12 @@ import { Label } from './types.js';
 export const LABELS: Label[] = [
   {
     rkey: '',
-    identifier: 'trump',
+    identifier: 'trumpface',
     locales: [
       {
         lang: 'en',
-        name: 'Donald Trump',
-        description: 'This post contains an image of Donald Trump',
+        name: 'Contains Trump\'s Face',
+        description: 'The image contains Trump\'s face',
       },
     ],
   },
