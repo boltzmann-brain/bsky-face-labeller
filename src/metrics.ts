@@ -40,6 +40,24 @@ export const errorRate = new Counter({
   registers: [register],
 });
 
+export const cacheHits = new Counter({
+  name: 'image_cache_hits_total',
+  help: 'Total number of cache hits for image phash',
+  registers: [register],
+});
+
+export const cacheMisses = new Counter({
+  name: 'image_cache_misses_total',
+  help: 'Total number of cache misses for image phash',
+  registers: [register],
+});
+
+export const cacheSize = new Gauge({
+  name: 'image_cache_size',
+  help: 'Total number of entries in the image cache',
+  registers: [register],
+});
+
 const app = express();
 
 app.get('/metrics', (req, res) => {

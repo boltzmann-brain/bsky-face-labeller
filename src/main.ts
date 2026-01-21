@@ -12,10 +12,11 @@ import {
   WANTED_COLLECTION,
 } from './config.js';
 import { initializeFaceDetection, loadReferenceFaces } from './faceDetection.js';
+import { closeCache, getCacheStats } from './imageCache.js';
 import { hasImages, processPostImages } from './imageProcessor.js';
 import { labelPost, labelerServer } from './label.js';
 import logger from './logger.js';
-import { startMetricsServer } from './metrics.js';
+import { cacheSize, startMetricsServer } from './metrics.js';
 import { ProcessingQueue } from './queue.js';
 
 let cursor = 0;
@@ -47,6 +48,12 @@ async function main() {
     await initializeFaceDetection();
     await loadReferenceFaces();
     logger.info('Face detection initialization complete');
+
+    // Log cache statistics
+    const cacheStats = getCacheStats();
+    logger.info(
+      `Image cache loaded: ${cacheStats.totalEntries} total entries (${cacheStats.entriesWithDetections} with detections, ${cacheStats.entriesWithoutDetections} without)`,
+    );
   } catch (error) {
     logger.error(`Failed to initialize face detection: ${error}`);
     process.exit(1);
@@ -69,6 +76,10 @@ async function main() {
           if (err) logger.error(err);
         });
       }
+
+      // Update cache size metric
+      const stats = getCacheStats();
+      cacheSize.set(stats.totalEntries);
     }, CURSOR_UPDATE_INTERVAL);
   });
 
@@ -135,6 +146,8 @@ async function main() {
       jetstream.close();
       labelerServer.stop();
       metricsServer.close();
+      closeCache();
+      logger.info('Shutdown complete');
     } catch (error) {
       logger.error(`Error shutting down gracefully: ${error}`);
       process.exit(1);

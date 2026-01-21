@@ -2,7 +2,9 @@ import { CommitCreateEvent } from '@skyware/jetstream';
 
 import { MAX_IMAGE_PROCESSING_TIME } from './config.js';
 import { detectFaces, downloadImageBlob } from './faceDetection.js';
+import { cacheResult, computePhash, getCachedResult } from './imageCache.js';
 import logger from './logger.js';
+import { cacheHits, cacheMisses } from './metrics.js';
 import { BlobRef } from './types.js';
 
 /**
@@ -68,12 +70,12 @@ async function processImageWithTimeout(
   did: string,
   blob: BlobRef,
   index: number,
-): Promise<Array<{ person: string; confidence: number }>> {
+): Promise<{ person: string; confidence: number }[]> {
   return Promise.race([
     processSingleImage(did, blob, index),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout')), MAX_IMAGE_PROCESSING_TIME),
-    ),
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout')), MAX_IMAGE_PROCESSING_TIME);
+    }),
   ]);
 }
 
@@ -84,7 +86,7 @@ async function processSingleImage(
   did: string,
   blob: BlobRef,
   index: number,
-): Promise<Array<{ person: string; confidence: number }>> {
+): Promise<{ person: string; confidence: number }[]> {
   const startTime = Date.now();
 
   try {
@@ -94,8 +96,33 @@ async function processSingleImage(
     const downloadTime = Date.now() - startTime;
     logger.info(`Image ${index + 1} downloaded (${downloadTime}ms, ${(blob.size / 1024).toFixed(1)}KB)`);
 
-    // Detect faces
-    logger.info(`Detecting faces in image ${index + 1}...`);
+    // Compute perceptual hash
+    logger.info(`Computing perceptual hash for image ${index + 1}...`);
+    const phashStart = Date.now();
+    const hash = await computePhash(imageBuffer);
+    const phashTime = Date.now() - phashStart;
+    logger.info(`Image ${index + 1} phash: ${hash} (${phashTime}ms)`);
+
+    // Check cache
+    const cachedResult = getCachedResult(hash);
+    if (cachedResult) {
+      cacheHits.inc();
+      logger.info(
+        `Cache hit for image ${index + 1}! Previously seen ${cachedResult.seenCount} times. Detected: ${cachedResult.detectedPeople.length > 0 ? cachedResult.detectedPeople.join(', ') : 'none'}`,
+      );
+
+      // Convert cached people to match format
+      const matches = cachedResult.detectedPeople.map((person) => ({
+        person,
+        confidence: 1.0, // Cached results are considered 100% confident
+      }));
+
+      return matches;
+    }
+
+    // Cache miss - perform face detection
+    cacheMisses.inc();
+    logger.info(`Cache miss for image ${index + 1}, performing face detection...`);
     const detectionStart = Date.now();
     const matches = await detectFaces(imageBuffer);
     const detectionTime = Date.now() - detectionStart;
@@ -107,6 +134,10 @@ async function processSingleImage(
     } else {
       logger.info(`No recognized faces in image ${index + 1} (${detectionTime}ms)`);
     }
+
+    // Store result in cache
+    const detectedPeople = matches.map((m) => m.person);
+    cacheResult(hash, detectedPeople);
 
     return matches;
   } catch (error) {
