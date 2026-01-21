@@ -15,7 +15,7 @@ const labelDefinitions: ComAtprotoLabelDefs.LabelValueDefinition[] = [];
 for (const label of LABELS) {
   const labelValueDefinition: ComAtprotoLabelDefs.LabelValueDefinition = {
     identifier: label.identifier,
-    severity: 'inform',
+    severity: 'alert',
     blurs: 'media',
     defaultSetting: 'warn',
     adultOnly: false,
