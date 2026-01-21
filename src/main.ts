@@ -159,6 +159,9 @@ async function main() {
 
   const metricsServer = startMetricsServer(METRICS_PORT);
 
+  // Wait for Fastify plugins (including WebSocket) to be registered
+  await labelerServer.app.ready();
+
   // Use app.listen directly to specify host binding
   // Default to 0.0.0.0 to allow external access
   const listenHost = HOST === '127.0.0.1' ? '0.0.0.0' : HOST;
