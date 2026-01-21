@@ -5,6 +5,21 @@ import logger from './logger.js';
 
 export const labelerServer = new LabelerServer({ did: DID, signingKey: SIGNING_KEY });
 
+// Add DID document route for public resolution
+labelerServer.app.get('/.well-known/did.json', async (request, reply) => {
+  return {
+    '@context': ['https://www.w3.org/ns/did/v1'],
+    id: DID,
+    service: [
+      {
+        id: '#atproto_labeler',
+        type: 'AtprotoLabeler',
+        serviceEndpoint: `https://bsky.app`,
+      },
+    ],
+  };
+});
+
 /**
  * Apply labels to a post
  * @param postUri - The full AT-URI of the post (at://did/app.bsky.feed.post/rkey)

@@ -159,7 +159,10 @@ async function main() {
 
   const metricsServer = startMetricsServer(METRICS_PORT);
 
-  labelerServer.app.listen({ port: PORT, host: HOST }, (error, address) => {
+  // Use app.listen directly to specify host binding
+  // Default to 0.0.0.0 to allow external access
+  const listenHost = HOST === '127.0.0.1' ? '0.0.0.0' : HOST;
+  labelerServer.app.listen({ port: PORT, host: listenHost }, (error, address) => {
     if (error) {
       logger.error('Error starting server: %s', error);
     } else {
