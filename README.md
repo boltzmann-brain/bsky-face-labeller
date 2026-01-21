@@ -283,6 +283,63 @@ Metrics are available at `http://localhost:4101/metrics`:
 - `image_processing_duration_seconds` - Processing time histogram
 - `processing_queue_size` - Current queue size
 - `processing_errors_total` - Error counts
+- `image_cache_hits_total` - Number of cache hits (duplicate images)
+- `image_cache_misses_total` - Number of cache misses (new images)
+- `image_cache_size` - Total entries in cache database
+
+### Querying Logs
+
+Use PM2 or grep to search logs for specific events:
+
+**View live logs:**
+```bash
+pm2 logs labeler
+pm2 logs python-service
+```
+
+**Find posts that were successfully labeled:**
+```bash
+pm2 logs labeler --nostream | grep "Labeled post"
+```
+
+Example output:
+```
+[2026-01-21 17:30:15] INFO: Labeled post at://did:plc:xyz/app.bsky.feed.post/abc123 with: trump
+```
+
+**Find all face detections:**
+```bash
+pm2 logs labeler --nostream | grep "Found.*face"
+```
+
+Example output:
+```
+[2026-01-21 17:30:14] INFO: Found 1 face(s) in image 1 (245ms): trump
+```
+
+**Find cache hits (previously processed images):**
+```bash
+pm2 logs labeler --nostream | grep "Cache hit"
+```
+
+**Get the post URL from a labeled post:**
+
+When you see a post URI like `at://did:plc:xyz/app.bsky.feed.post/abc123`, you can view it in your browser:
+```
+https://bsky.app/profile/did:plc:xyz/post/abc123
+```
+
+Replace the DID and post rkey (the part after `/post/`) with the values from your log.
+
+**Filter logs by date:**
+```bash
+pm2 logs labeler --nostream --lines 1000 | grep "2026-01-21" | grep "Labeled post"
+```
+
+**Save logs to file for analysis:**
+```bash
+pm2 logs labeler --nostream --lines 10000 > labeler-logs.txt
+```
 
 ## Troubleshooting
 
