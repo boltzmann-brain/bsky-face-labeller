@@ -14,7 +14,7 @@ labelerServer.app.get('/.well-known/did.json', async (request, reply) => {
       {
         id: '#atproto_labeler',
         type: 'AtprotoLabeler',
-        serviceEndpoint: `https://bsky.app`,
+        serviceEndpoint: `http://138.197.69.188:4100`,
       },
     ],
   };
