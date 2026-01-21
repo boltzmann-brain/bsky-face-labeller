@@ -18,6 +18,8 @@ If you find this project helpful, consider supporting development:
 
 - [Node.js](https://nodejs.org/) v22.11.0 (LTS) for the runtime
 - npm (comes with Node.js) for package management
+- [Python](https://www.python.org/) 3.8+ for the face detection service
+- pip3 for Python package management
 - ~50MB disk space for face detection models and reference images
 - 4+ CPU cores recommended for face detection
 - ~1GB RAM for models and processing
@@ -26,7 +28,7 @@ If you find this project helpful, consider supporting development:
 
 ### 1. Initial Setup
 
-Clone the repo and install dependencies:
+Clone the repo and install Node.js dependencies:
 
 ```bash
 git clone <your-repo-url>
@@ -34,7 +36,30 @@ cd bsky-face-labeller
 npm install
 ```
 
-### 2. Setup Labeler Account
+### 2. Install Python Dependencies
+
+The face detection service requires Python packages. Install them with:
+
+```bash
+cd python-service
+pip3 install -r requirements.txt --break-system-packages
+cd ..
+```
+
+**Note**: On some systems, you may need to use `--break-system-packages` flag. For production deployments, consider using a virtual environment:
+
+```bash
+cd python-service
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+deactivate
+cd ..
+```
+
+If using a virtual environment, update `scripts/start-services.sh` to use `python-service/venv/bin/python` as the interpreter.
+
+### 3. Setup Labeler Account
 
 Run the Skyware labeler setup to convert an existing Bluesky account into a labeler:
 
@@ -44,7 +69,7 @@ npx @skyware/labeler setup
 
 You can exit after converting the account; there's no need to add the labels with the wizard. We'll do that from code.
 
-### 3. Configure Environment
+### 4. Configure Environment
 
 Copy the `.env.example` file to `.env` and fill in your values:
 
@@ -74,7 +99,7 @@ PROCESS_ALL_POSTS=false
 
 **Important**: Set `PROCESS_ALL_POSTS=false` initially to avoid overwhelming your server. You can enable it later after testing.
 
-### 4. Download Face Detection Models
+### 5. Download Face Detection Models
 
 Download the required face-api.js models (~12MB):
 
@@ -84,7 +109,7 @@ npm run download-models
 
 This will download models to the `models/` directory.
 
-### 5. Add Reference Face Images
+### 6. Add Reference Face Images
 
 Add 5-10 clear photos of Trump's face to the `reference-faces/trump/` directory:
 
@@ -97,7 +122,7 @@ See `reference-faces/README.md` for detailed guidelines on image quality and req
 
 **You need to provide these images yourself.** Search for high-quality, well-lit photos of Trump's face from different angles.
 
-### 6. Publish Labels
+### 7. Publish Labels
 
 Run the label setup script to publish your label definitions to Bluesky:
 
@@ -107,7 +132,7 @@ npm run set-labels
 
 This creates the "trump" label in the Bluesky labeler system.
 
-### 7. Create Cursor File
+### 8. Create Cursor File
 
 A `cursor.txt` file containing the time in microseconds needs to be present. It will be created automatically on first run.
 
@@ -132,17 +157,50 @@ Metrics are exposed on the defined `METRICS_PORT` for [Prometheus](https://prome
 
 ## Running the Labeler
 
-Start the labeler:
+The labeler consists of two services that must both be running:
+
+### Development (Local)
+
+Start the Python face detection service first:
+
+```bash
+cd python-service
+python3 face_service.py
+```
+
+In a separate terminal, start the Node.js labeler:
 
 ```bash
 npm run start
 ```
 
+### Production (VPS)
+
+Use the provided scripts to manage both services:
+
+```bash
+# Start both services via PM2
+./scripts/start-services.sh
+
+# Check status
+./scripts/status.sh
+
+# View logs
+pm2 logs
+
+# Restart services
+./scripts/restart-services.sh
+
+# Stop services
+./scripts/stop-services.sh
+```
+
 You should see logs indicating:
-1. Face detection models loading
-2. Reference faces being loaded
-3. Connection to Jetstream
-4. "Face detection initialization complete"
+1. Python service loading reference faces
+2. Node.js service connecting to Python service
+3. Reference faces being loaded
+4. Connection to Jetstream
+5. "Face detection initialization complete"
 
 You can check that the labeler is reachable by checking the `/xrpc/com.atproto.label.queryLabels` endpoint of your labeler's server. A new, empty labeler returns `{"cursor":"0","labels":[]}`.
 

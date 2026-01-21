@@ -25,14 +25,26 @@ import { ProcessingQueue } from './queue.js';
 let cursor = 0;
 let cursorUpdateInterval: NodeJS.Timeout;
 
-function epochUsToDateTime(cursor: number): string {
+function epochUsToDateTime(cursor: number | undefined): string {
+  if (!cursor || isNaN(cursor)) {
+    return 'invalid cursor';
+  }
   return new Date(cursor / 1000).toISOString();
 }
 
 async function main() {
   try {
     logger.info('Trying to read cursor from cursor.txt...');
-    cursor = Number(fs.readFileSync('cursor.txt', 'utf8'));
+    const cursorText = fs.readFileSync('cursor.txt', 'utf8').trim();
+    cursor = Number(cursorText);
+
+    // Validate cursor is a valid number
+    if (isNaN(cursor) || cursor <= 0) {
+      logger.warn(`Invalid cursor value in cursor.txt: "${cursorText}". Resetting to current time.`);
+      cursor = Math.floor(Date.now() * 1000);
+      fs.writeFileSync('cursor.txt', cursor.toString(), 'utf8');
+    }
+
     logger.info(`Cursor found: ${cursor} (${epochUsToDateTime(cursor)})`);
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
