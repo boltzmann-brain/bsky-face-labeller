@@ -17,7 +17,7 @@ for (const label of LABELS) {
     identifier: label.identifier,
     severity: 'inform',
     blurs: 'none',
-    defaultSetting: 'warn',
+    defaultSetting: 'ignore',
     adultOnly: false,
     locales: label.locales,
   };
