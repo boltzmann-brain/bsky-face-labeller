@@ -1,4 +1,5 @@
 import { CommitCreateEvent, Jetstream } from '@skyware/jetstream';
+import WebSocket from 'ws';
 import fs from 'node:fs';
 
 import {
@@ -63,6 +64,7 @@ async function main() {
     wantedCollections: [WANTED_COLLECTION],
     endpoint: FIREHOSE_URL,
     cursor: cursor,
+    ws: WebSocket,
   });
 
   jetstream.on('open', () => {
