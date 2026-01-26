@@ -111,10 +111,10 @@ This will download models to the `models/` directory.
 
 ### 6. Add Reference Face Images
 
-Add 5-10 clear photos of Trump's face to the `reference-faces/trump/` directory:
+Add 5-10 clear photos of Trump's face to the `reference-faces/trumpface/` directory:
 
 ```bash
-# Example: Download images to reference-faces/trump/
+# Example: Download images to reference-faces/trumpface/
 # Name them 001.jpg, 002.jpg, 003.jpg, etc.
 ```
 

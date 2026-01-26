@@ -12,7 +12,7 @@ Each subdirectory represents a person to recognize:
 
 ## Current Setup
 
-- `trump/` - Donald Trump reference images (add your images here)
+- `trumpface/` - Donald Trump reference images (add your images here)
 
 ## Adding a New Person
 
