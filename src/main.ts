@@ -11,6 +11,7 @@ import {
   MIN_FOLLOWER_COUNT,
   PORT,
   PROCESS_ALL_POSTS,
+  QUEUE_CONCURRENCY,
   WANTED_COLLECTION,
 } from './config.js';
 import { initializeFaceDetection, loadReferenceFaces } from './faceDetection.js';
@@ -136,6 +137,7 @@ async function main() {
         logger.error(`Error processing post ${event.commit.rkey}: ${error}`);
       }
     },
+    QUEUE_CONCURRENCY,
   );
 
   jetstream.onCreate(WANTED_COLLECTION, async (event: CommitCreateEvent<typeof WANTED_COLLECTION>) => {

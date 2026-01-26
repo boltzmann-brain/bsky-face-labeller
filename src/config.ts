@@ -20,6 +20,7 @@ export const MAX_IMAGE_PROCESSING_TIME = process.env.MAX_IMAGE_PROCESSING_TIME
   ? Number(process.env.MAX_IMAGE_PROCESSING_TIME)
   : 10000;
 export const MAX_QUEUE_SIZE = process.env.MAX_QUEUE_SIZE ? Number(process.env.MAX_QUEUE_SIZE) : 100;
+export const QUEUE_CONCURRENCY = process.env.QUEUE_CONCURRENCY ? Number(process.env.QUEUE_CONCURRENCY) : 2;
 export const PROCESS_ALL_POSTS = process.env.PROCESS_ALL_POSTS === 'true';
 export const MIN_FOLLOWER_COUNT = process.env.MIN_FOLLOWER_COUNT
   ? Number(process.env.MIN_FOLLOWER_COUNT)

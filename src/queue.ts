@@ -7,14 +7,16 @@ type EventProcessor = (event: QueuedEvent) => Promise<void>;
 
 export class ProcessingQueue {
   private queue: QueuedEvent[] = [];
-  private processing = false;
+  private activeCount = 0;
   private maxQueueSize: number;
+  private concurrency: number;
   private processor: EventProcessor;
   private droppedCount = 0;
 
-  constructor(maxQueueSize: number, processor: EventProcessor) {
+  constructor(maxQueueSize: number, processor: EventProcessor, concurrency = 2) {
     this.maxQueueSize = maxQueueSize;
     this.processor = processor;
+    this.concurrency = concurrency;
   }
 
   /**
@@ -30,18 +32,21 @@ export class ProcessingQueue {
     }
 
     this.queue.push(event);
-    this.processNext();
+    // Start multiple workers up to concurrency limit
+    while (this.activeCount < this.concurrency && this.queue.length > 0) {
+      this.processNext();
+    }
   }
 
   /**
    * Process next event in queue
    */
   private async processNext(): Promise<void> {
-    if (this.processing || this.queue.length === 0) {
+    if (this.activeCount >= this.concurrency || this.queue.length === 0) {
       return;
     }
 
-    this.processing = true;
+    this.activeCount++;
     const event = this.queue.shift()!;
 
     try {
@@ -49,7 +54,7 @@ export class ProcessingQueue {
     } catch (error) {
       logger.error(`Queue processing error: ${error}`);
     } finally {
-      this.processing = false;
+      this.activeCount--;
 
       // Process next item if queue not empty
       if (this.queue.length > 0) {
