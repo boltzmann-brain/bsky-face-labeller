@@ -22,6 +22,7 @@ reference_encodings = {}
 REFERENCE_FACES_DIR = os.path.join(os.path.dirname(__file__), '..', 'reference-faces')
 CONFIDENCE_THRESHOLD = float(os.getenv('FACE_CONFIDENCE_THRESHOLD', '0.6'))
 MAX_FACES_TO_PROCESS = int(os.getenv('MAX_FACES_TO_PROCESS', '50'))
+MAX_IMAGE_DIMENSION = int(os.getenv('MAX_IMAGE_DIMENSION', '1500'))
 
 
 def load_reference_faces():
@@ -109,6 +110,14 @@ def detect_faces():
         # Convert to RGB if needed
         if pil_image.mode != 'RGB':
             pil_image = pil_image.convert('RGB')
+
+        # Resize large images to prevent OOM during face detection
+        width, height = pil_image.size
+        if width > MAX_IMAGE_DIMENSION or height > MAX_IMAGE_DIMENSION:
+            ratio = min(MAX_IMAGE_DIMENSION / width, MAX_IMAGE_DIMENSION / height)
+            new_size = (int(width * ratio), int(height * ratio))
+            logger.info(f"Resizing image from {width}x{height} to {new_size[0]}x{new_size[1]}")
+            pil_image = pil_image.resize(new_size, Image.LANCZOS)
 
         # Convert to numpy array
         image_array = np.array(pil_image)
