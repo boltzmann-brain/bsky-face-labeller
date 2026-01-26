@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 reference_encodings = {}
 REFERENCE_FACES_DIR = os.path.join(os.path.dirname(__file__), '..', 'reference-faces')
 CONFIDENCE_THRESHOLD = float(os.getenv('FACE_CONFIDENCE_THRESHOLD', '0.6'))
+MAX_FACES_TO_PROCESS = int(os.getenv('MAX_FACES_TO_PROCESS', '50'))
 
 
 def load_reference_faces():
@@ -120,6 +121,11 @@ def detect_faces():
             return jsonify({'matches': []})
 
         logger.info(f"Detected {len(face_locations)} face(s) in image")
+
+        # Skip images with too many faces (crowd photos, mosaics) to prevent OOM
+        if len(face_locations) > MAX_FACES_TO_PROCESS:
+            logger.warning(f"Skipping image with {len(face_locations)} faces (max: {MAX_FACES_TO_PROCESS})")
+            return jsonify({'matches': [], 'skipped': True, 'reason': 'too_many_faces'})
 
         # Get face encodings
         face_encodings = face_recognition.face_encodings(image_array, face_locations)
