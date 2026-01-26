@@ -260,6 +260,8 @@ Once Trump detection is working, you can add more people:
 - `PROCESS_ALL_POSTS` (default: false) - Whether to process all posts with images. Set to `false` to use follower-based filtering instead.
 - `MIN_FOLLOWER_COUNT` (default: 1000) - When `PROCESS_ALL_POSTS=false`, only process posts from accounts with at least this many followers. Set to 0 to process all posts. Higher values reduce server load by focusing on popular accounts.
 - `MAX_FACES_TO_PROCESS` (default: 50) - Skip images with more faces than this limit to prevent memory issues with crowd photos.
+- `CACHE_MAX_AGE_DAYS` (default: 30) - Evict cache entries not seen in this many days.
+- `CACHE_CLEANUP_INTERVAL` (default: 86400000) - How often to run cache cleanup in milliseconds (default: 24 hours).
 
 ### Performance Tuning
 

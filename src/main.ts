@@ -3,6 +3,8 @@ import WebSocket from 'ws';
 import fs from 'node:fs';
 
 import {
+  CACHE_CLEANUP_INTERVAL,
+  CACHE_MAX_AGE_DAYS,
   CURSOR_UPDATE_INTERVAL,
   FIREHOSE_URL,
   HOST,
@@ -16,7 +18,7 @@ import {
 } from './config.js';
 import { initializeFaceDetection, loadReferenceFaces } from './faceDetection.js';
 import { hasEnoughFollowers, initializeFollowerChecker } from './followerChecker.js';
-import { closeCache, getCacheStats } from './imageCache.js';
+import { closeCache, evictOldEntries, getCacheStats } from './imageCache.js';
 import { hasImages, processPostImages } from './imageProcessor.js';
 import { labelPost, labelerServer } from './label.js';
 import logger from './logger.js';
@@ -25,6 +27,7 @@ import { ProcessingQueue } from './queue.js';
 
 let cursor = 0;
 let cursorUpdateInterval: NodeJS.Timeout;
+let cacheCleanupInterval: NodeJS.Timeout;
 
 function epochUsToDateTime(cursor: number | undefined): string {
   if (!cursor || isNaN(cursor)) {
@@ -110,10 +113,19 @@ async function main() {
       const stats = getCacheStats();
       cacheSize.set(stats.totalEntries);
     }, CURSOR_UPDATE_INTERVAL);
+
+    // Start cache cleanup interval (runs once per day by default)
+    cacheCleanupInterval = setInterval(() => {
+      evictOldEntries(CACHE_MAX_AGE_DAYS);
+    }, CACHE_CLEANUP_INTERVAL);
+
+    // Run initial cleanup on startup
+    evictOldEntries(CACHE_MAX_AGE_DAYS);
   });
 
   jetstream.on('close', () => {
     clearInterval(cursorUpdateInterval);
+    clearInterval(cacheCleanupInterval);
     logger.info('Jetstream connection closed.');
   });
 

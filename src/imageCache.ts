@@ -134,6 +134,31 @@ export function getCacheStats(): {
 }
 
 /**
+ * Evict old cache entries that haven't been seen in maxAgeDays
+ */
+export function evictOldEntries(maxAgeDays: number): number {
+  try {
+    const db = getDb();
+    const stmt = db.prepare(`
+      DELETE FROM image_cache
+      WHERE last_seen_at < datetime('now', '-' || ? || ' days')
+    `);
+    const result = stmt.run(maxAgeDays);
+    
+    if (result.changes > 0) {
+      logger.info(`Cache cleanup: evicted ${result.changes} entries older than ${maxAgeDays} days`);
+      // Run VACUUM to reclaim disk space (do this periodically, not every cleanup)
+      db.exec('PRAGMA incremental_vacuum;');
+    }
+    
+    return result.changes;
+  } catch (error) {
+    logger.error(`Error evicting old cache entries: ${error}`);
+    return 0;
+  }
+}
+
+/**
  * Close database connection (call on shutdown)
  */
 export function closeCache(): void {

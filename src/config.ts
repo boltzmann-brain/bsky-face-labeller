@@ -25,3 +25,11 @@ export const PROCESS_ALL_POSTS = process.env.PROCESS_ALL_POSTS === 'true';
 export const MIN_FOLLOWER_COUNT = process.env.MIN_FOLLOWER_COUNT
   ? Number(process.env.MIN_FOLLOWER_COUNT)
   : 1000;
+
+// Cache configuration
+export const CACHE_MAX_AGE_DAYS = process.env.CACHE_MAX_AGE_DAYS
+  ? Number(process.env.CACHE_MAX_AGE_DAYS)
+  : 30;
+export const CACHE_CLEANUP_INTERVAL = process.env.CACHE_CLEANUP_INTERVAL
+  ? Number(process.env.CACHE_CLEANUP_INTERVAL)
+  : 86400000; // 24 hours in ms
