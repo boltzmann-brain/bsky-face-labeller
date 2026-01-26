@@ -10,7 +10,18 @@ import sharp from 'sharp';
 import logger from './logger.js';
 import { BlobRef, FaceMatch } from './types.js';
 
-const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:5001';
+// Support multiple Python service URLs for load balancing (comma-separated)
+const PYTHON_SERVICE_URLS = (process.env.PYTHON_SERVICE_URL || 'http://localhost:5001')
+  .split(',')
+  .map((url) => url.trim());
+let currentServiceIndex = 0;
+
+// Round-robin selection of Python service
+function getNextPythonServiceUrl(): string {
+  const url = PYTHON_SERVICE_URLS[currentServiceIndex];
+  currentServiceIndex = (currentServiceIndex + 1) % PYTHON_SERVICE_URLS.length;
+  return url;
+}
 
 // Initialization status
 let initialized = false;
@@ -28,7 +39,8 @@ export async function initializeFaceDetection(): Promise<void> {
   logger.info('Checking Python face detection service...');
 
   try {
-    const healthResponse = await axios.get(`${PYTHON_SERVICE_URL}/health`);
+    const serviceUrl = PYTHON_SERVICE_URLS[0]; // Check first service for health
+    const healthResponse = await axios.get(`${serviceUrl}/health`);
     const health = healthResponse.data as { status: string; people_loaded: string[]; total_encodings: number };
 
     if (health.status === 'healthy') {
@@ -40,7 +52,7 @@ export async function initializeFaceDetection(): Promise<void> {
       throw new Error('Python service unhealthy');
     }
   } catch (error) {
-    logger.error(`Failed to connect to Python face detection service at ${PYTHON_SERVICE_URL}: ${error}`);
+    logger.error(`Failed to connect to Python face detection service at ${PYTHON_SERVICE_URLS[0]}: ${error}`);
     throw new Error('Face detection initialization failed - Python service not available');
   }
 }
@@ -80,7 +92,8 @@ export async function detectFaces(imageBuffer: Buffer): Promise<FaceMatch[]> {
     });
 
     // Call Python service using axios
-    const response = await axios.post(`${PYTHON_SERVICE_URL}/detect`, formData, {
+    const serviceUrl = getNextPythonServiceUrl();
+    const response = await axios.post(`${serviceUrl}/detect`, formData, {
       headers: formData.getHeaders(),
     });
 
@@ -191,7 +204,7 @@ export async function getLoadedPeople(): Promise<string[]> {
   }
 
   try {
-    const response = await axios.get(`${PYTHON_SERVICE_URL}/health`);
+    const response = await axios.get(`${PYTHON_SERVICE_URLS[0]}/health`);
     const health = response.data as { people_loaded: string[] };
     return health.people_loaded;
   } catch (error) {

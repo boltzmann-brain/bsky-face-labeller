@@ -256,8 +256,10 @@ Once Trump detection is working, you can add more people:
 - `FACE_CONFIDENCE_THRESHOLD` (default: 0.6) - Minimum confidence for face match (0.0-1.0). Higher = more strict, fewer false positives.
 - `MAX_IMAGE_PROCESSING_TIME` (default: 10000) - Maximum time in ms to process a single image before timeout.
 - `MAX_QUEUE_SIZE` (default: 100) - Maximum number of posts in processing queue. Posts are dropped when queue is full.
+- `QUEUE_CONCURRENCY` (default: 2) - Number of images to process in parallel. Set to 1 for stability on low-memory systems (recommended for ≤2GB RAM).
 - `PROCESS_ALL_POSTS` (default: false) - Whether to process all posts with images. Set to `false` to use follower-based filtering instead.
 - `MIN_FOLLOWER_COUNT` (default: 1000) - When `PROCESS_ALL_POSTS=false`, only process posts from accounts with at least this many followers. Set to 0 to process all posts. Higher values reduce server load by focusing on popular accounts.
+- `MAX_FACES_TO_PROCESS` (default: 50) - Skip images with more faces than this limit to prevent memory issues with crowd photos.
 
 ### Performance Tuning
 
