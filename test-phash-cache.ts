@@ -16,7 +16,7 @@ async function testPhashCache() {
   logger.info('=== Testing Perceptual Hash Cache ===');
 
   // Find a test image
-  const testImageDir = './reference-faces/trump';
+  const testImageDir = './reference-faces/trumpface';
   if (!fs.existsSync(testImageDir)) {
     logger.error('No test images found. Please add reference images first.');
     process.exit(1);
@@ -25,7 +25,7 @@ async function testPhashCache() {
   const imageRegex = /\.(jpg|jpeg|png)$/i;
   const files = fs.readdirSync(testImageDir).filter(f => imageRegex.exec(f));
   if (files.length === 0) {
-    logger.error('No image files found in reference-faces/trump/');
+    logger.error('No image files found in reference-faces/trumpface/');
     process.exit(1);
   }
 
