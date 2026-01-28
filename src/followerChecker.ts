@@ -11,6 +11,12 @@ interface FollowerCache {
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 const followerCache = new Map<string, FollowerCache>();
 
+// Rate limiting: track pending requests and add delay between API calls
+let lastApiCall = 0;
+const MIN_API_INTERVAL = 100; // Minimum 100ms between API calls
+let pendingRequests = 0;
+const MAX_PENDING_REQUESTS = 10; // Max concurrent lookups
+
 let agent: AtpAgent | null = null;
 
 /**
@@ -45,6 +51,11 @@ export async function hasEnoughFollowers(did: string): Promise<boolean> {
     return cached.count >= MIN_FOLLOWER_COUNT;
   }
 
+  // Rate limit: skip if too many pending requests (assume not enough followers)
+  if (pendingRequests >= MAX_PENDING_REQUESTS) {
+    return false;
+  }
+
   // Fetch follower count from API
   try {
     if (!agent) {
@@ -52,8 +63,20 @@ export async function hasEnoughFollowers(did: string): Promise<boolean> {
       return true;
     }
 
+    // Rate limit: wait if we're calling too fast
+    const now = Date.now();
+    const timeSinceLastCall = now - lastApiCall;
+    if (timeSinceLastCall < MIN_API_INTERVAL) {
+      await new Promise((resolve) => setTimeout(resolve, MIN_API_INTERVAL - timeSinceLastCall));
+    }
+
+    pendingRequests++;
+    lastApiCall = Date.now();
+
     const profile = await agent.getProfile({ actor: did });
     const followerCount = profile.data.followersCount || 0;
+
+    pendingRequests--;
 
     // Cache the result
     followerCache.set(did, {
@@ -68,9 +91,15 @@ export async function hasEnoughFollowers(did: string): Promise<boolean> {
 
     return hasEnough;
   } catch (error) {
+    pendingRequests--;
+    // On rate limit, don't log every error - just skip the post
+    const errorStr = String(error);
+    if (errorStr.includes('Rate Limit')) {
+      return false; // Skip post when rate limited
+    }
     logger.error(`Error fetching follower count for ${did}: ${error}`);
-    // On error, allow the post to avoid blocking on API issues
-    return true;
+    // On other errors, skip the post to be safe
+    return false;
   }
 }
 

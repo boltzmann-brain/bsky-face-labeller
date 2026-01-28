@@ -7,6 +7,8 @@ import {
   CACHE_MAX_AGE_DAYS,
   CURSOR_UPDATE_INTERVAL,
   FIREHOSE_URL,
+  HEARTBEAT_INTERVAL,
+  HEARTBEAT_TIMEOUT,
   HOST,
   MAX_QUEUE_SIZE,
   METRICS_PORT,
@@ -28,6 +30,8 @@ import { ProcessingQueue } from './queue.js';
 let cursor = 0;
 let cursorUpdateInterval: NodeJS.Timeout;
 let cacheCleanupInterval: NodeJS.Timeout;
+let heartbeatInterval: NodeJS.Timeout;
+let lastEventTime = Date.now();
 
 function epochUsToDateTime(cursor: number | undefined): string {
   if (!cursor || isNaN(cursor)) {
@@ -121,11 +125,29 @@ async function main() {
 
     // Run initial cleanup on startup
     evictOldEntries(CACHE_MAX_AGE_DAYS);
+
+    // Start heartbeat check - restart if no events received for too long
+    heartbeatInterval = setInterval(() => {
+      const timeSinceLastEvent = Date.now() - lastEventTime;
+      if (timeSinceLastEvent > HEARTBEAT_TIMEOUT) {
+        logger.warn(
+          `No events received for ${Math.round(timeSinceLastEvent / 1000)}s (timeout: ${HEARTBEAT_TIMEOUT / 1000}s). Restarting connection...`,
+        );
+        jetstream.close();
+        // Reset cursor to current time to avoid processing stale events
+        const newCursor = Math.floor(Date.now() * 1000);
+        fs.writeFileSync('cursor.txt', newCursor.toString(), 'utf8');
+        logger.info(`Reset cursor to current time: ${newCursor} (${epochUsToDateTime(newCursor)})`);
+        // Exit and let PM2 restart the process
+        process.exit(1);
+      }
+    }, HEARTBEAT_INTERVAL);
   });
 
   jetstream.on('close', () => {
     clearInterval(cursorUpdateInterval);
     clearInterval(cacheCleanupInterval);
+    clearInterval(heartbeatInterval);
     logger.info('Jetstream connection closed.');
   });
 
@@ -153,6 +175,9 @@ async function main() {
   );
 
   jetstream.onCreate(WANTED_COLLECTION, async (event: CommitCreateEvent<typeof WANTED_COLLECTION>) => {
+    // Update heartbeat timestamp on every event
+    lastEventTime = Date.now();
+
     // Check if post has images first (quick check)
     if (!hasImages(event.commit?.record)) {
       return;

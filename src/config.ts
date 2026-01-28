@@ -33,3 +33,11 @@ export const CACHE_MAX_AGE_DAYS = process.env.CACHE_MAX_AGE_DAYS
 export const CACHE_CLEANUP_INTERVAL = process.env.CACHE_CLEANUP_INTERVAL
   ? Number(process.env.CACHE_CLEANUP_INTERVAL)
   : 86400000; // 24 hours in ms
+
+// Connection health configuration
+export const HEARTBEAT_INTERVAL = process.env.HEARTBEAT_INTERVAL
+  ? Number(process.env.HEARTBEAT_INTERVAL)
+  : 60000; // Check every 60 seconds
+export const HEARTBEAT_TIMEOUT = process.env.HEARTBEAT_TIMEOUT
+  ? Number(process.env.HEARTBEAT_TIMEOUT)
+  : 300000; // Restart if no events for 5 minutes
