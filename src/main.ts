@@ -21,6 +21,7 @@ import {
 import { initializeFaceDetection, loadReferenceFaces } from './faceDetection.js';
 import { hasEnoughFollowers, initializeFollowerChecker } from './followerChecker.js';
 import { closeCache, evictOldEntries, getCacheStats } from './imageCache.js';
+import { cleanOldPostLogs, closePostLog, logPost } from './postLog.js';
 import { hasImages, processPostImages } from './imageProcessor.js';
 import { labelPost, labelerServer } from './label.js';
 import logger from './logger.js';
@@ -121,10 +122,12 @@ async function main() {
     // Start cache cleanup interval (runs once per day by default)
     cacheCleanupInterval = setInterval(() => {
       evictOldEntries(CACHE_MAX_AGE_DAYS);
+      cleanOldPostLogs(CACHE_MAX_AGE_DAYS);
     }, CACHE_CLEANUP_INTERVAL);
 
     // Run initial cleanup on startup
     evictOldEntries(CACHE_MAX_AGE_DAYS);
+    cleanOldPostLogs(CACHE_MAX_AGE_DAYS);
 
     // Start heartbeat check - restart if no events received for too long
     heartbeatInterval = setInterval(() => {
@@ -161,6 +164,9 @@ async function main() {
     async (event: CommitCreateEvent<'app.bsky.feed.post'>) => {
       try {
         const labelsToApply = await processPostImages(event);
+
+        const bskyUrl = `https://bsky.app/profile/${event.did}/post/${event.commit.rkey}`;
+        logPost(bskyUrl, labelsToApply);
 
         if (labelsToApply.length > 0) {
           const postUri = `at://${event.did}/${WANTED_COLLECTION}/${event.commit.rkey}`;
@@ -222,6 +228,7 @@ async function main() {
       labelerServer.stop();
       metricsServer.close();
       closeCache();
+      closePostLog();
       logger.info('Shutdown complete');
     } catch (error) {
       logger.error(`Error shutting down gracefully: ${error}`);

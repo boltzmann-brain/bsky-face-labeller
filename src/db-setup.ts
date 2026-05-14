@@ -21,6 +21,16 @@ export function setupDatabase() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_phash ON image_cache(phash);
+
+    CREATE TABLE IF NOT EXISTS post_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bsky_url TEXT NOT NULL,
+      labels TEXT NOT NULL DEFAULT '[]',
+      processed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_post_log_processed_at ON post_log(processed_at);
+    CREATE INDEX IF NOT EXISTS idx_post_log_labels ON post_log(labels);
   `);
 
   logger.info('Database schema initialized');

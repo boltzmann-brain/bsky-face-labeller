@@ -19,6 +19,9 @@ labeler.log
 # Test files
 test-face-detection*.ts
 
+# Accuracy monitoring samples
+accuracy-samples/
+
 # Temporary helper scripts
 download-images-slow.sh
 download-reference-images.sh
