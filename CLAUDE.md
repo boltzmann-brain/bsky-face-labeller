@@ -78,7 +78,6 @@ For VPS deployment, use the management scripts:
 
 ```bash
 npm run set-labels     # Publish label definitions to Bluesky
-npm run download-models # Download face-api.js models (legacy, not used)
 ```
 
 ### Code Quality

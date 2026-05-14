@@ -99,17 +99,7 @@ PROCESS_ALL_POSTS=false
 
 **Important**: Set `PROCESS_ALL_POSTS=false` initially to avoid overwhelming your server. You can enable it later after testing.
 
-### 5. Download Face Detection Models
-
-Download the required face-api.js models (~12MB):
-
-```bash
-npm run download-models
-```
-
-This will download models to the `models/` directory.
-
-### 6. Add Reference Face Images
+### 5. Add Reference Face Images
 
 Add 5-10 clear photos of Trump's face to the `reference-faces/trumpface/` directory:
 
