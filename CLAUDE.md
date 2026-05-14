@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Bluesky labeler that automatically detects faces of public figures in post images and applies labels to those posts. The system uses a hybrid architecture:
 - **Node.js TypeScript service**: Connects to Bluesky's Jetstream firehose, manages labeling, and orchestrates processing
-- **Python microservice**: Handles face detection and recognition using the face_recognition library
+- **Python microservice**: Handles face detection and recognition using InsightFace (ArcFace + RetinaFace via buffalo_l model)
 
 ## Architecture
 
@@ -26,7 +26,7 @@ The system consists of two independent services that communicate via HTTP:
    - Flask HTTP server
    - Loads reference face encodings on startup from `reference-faces/` directory
    - Provides `/detect` endpoint that accepts image uploads
-   - Uses `face_recognition` library (built on dlib) for detection and matching
+   - Uses InsightFace buffalo_l (RetinaFace detection + ArcFace recognition) for detection and matching
    - Returns matched people with confidence scores
 
 ### Data Flow
@@ -108,7 +108,7 @@ All configuration is in `.env`. Key variables:
 
 **Processing Controls**:
 - `PROCESS_ALL_POSTS` - Set to `false` to disable processing (default)
-- `FACE_CONFIDENCE_THRESHOLD` - Minimum confidence for matches (0.0-1.0, default 0.6)
+- `FACE_CONFIDENCE_THRESHOLD` - Minimum confidence for matches (0.0-1.0, default 0.4 (cosine similarity — higher is stricter))
 - `MAX_IMAGE_PROCESSING_TIME` - Timeout per image in ms (default 10000)
 - `MAX_QUEUE_SIZE` - Maximum concurrent processing queue (default 100)
 
@@ -314,5 +314,5 @@ Uses `pino` logger with structured logging. All log statements include context (
 
 - Flask with synchronous endpoints (no async needed)
 - In-memory reference encoding storage
-- Numpy arrays for face_recognition library
+- Numpy arrays for InsightFace
 - Environment variables for configuration

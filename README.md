@@ -20,9 +20,9 @@ If you find this project helpful, consider supporting development:
 - npm (comes with Node.js) for package management
 - [Python](https://www.python.org/) 3.8+ for the face detection service
 - pip3 for Python package management
-- ~50MB disk space for face detection models and reference images
+- ~350MB disk space for face detection models and reference images
 - 4+ CPU cores recommended for face detection
-- ~1GB RAM for models and processing
+- ~1–2GB RAM for models and processing
 
 ## Setup
 
@@ -91,7 +91,7 @@ FIREHOSE_URL=wss://jetstream1.us-east.bsky.network/subscribe
 CURSOR_UPDATE_INTERVAL=10000
 
 # Face detection configuration
-FACE_CONFIDENCE_THRESHOLD=0.6
+FACE_CONFIDENCE_THRESHOLD=0.4
 MAX_IMAGE_PROCESSING_TIME=10000
 MAX_QUEUE_SIZE=100
 PROCESS_ALL_POSTS=false
@@ -243,7 +243,7 @@ Once Trump detection is working, you can add more people:
 
 ### Environment Variables
 
-- `FACE_CONFIDENCE_THRESHOLD` (default: 0.6) - Minimum confidence for face match (0.0-1.0). Higher = more strict, fewer false positives.
+- `FACE_CONFIDENCE_THRESHOLD` (default: 0.4) - Minimum cosine similarity for face match (0.0–1.0). Higher = more strict, fewer false positives. Useful tuning range is 0.35–0.50.
 - `MAX_IMAGE_PROCESSING_TIME` (default: 10000) - Maximum time in ms to process a single image before timeout.
 - `MAX_QUEUE_SIZE` (default: 100) - Maximum number of posts in processing queue. Posts are dropped when queue is full.
 - `QUEUE_CONCURRENCY` (default: 2) - Number of images to process in parallel. Set to 1 for stability on low-memory systems (recommended for ≤2GB RAM).
@@ -257,12 +257,17 @@ Once Trump detection is working, you can add more people:
 
 ### Performance Tuning
 
+The threshold uses cosine similarity (InsightFace ArcFace). Valid tuning range is approximately `0.35`–`0.50`:
+- `0.40` — balanced (default)
+- `0.45` — stricter, fewer false positives
+- `0.50` — very strict, may miss some matches
+
 If you're getting too many false positives:
-- Increase `FACE_CONFIDENCE_THRESHOLD` to 0.7 or 0.8
+- Increase `FACE_CONFIDENCE_THRESHOLD` to 0.45 or 0.50
 - Add more varied reference images
 
 If you're missing correct detections:
-- Decrease `FACE_CONFIDENCE_THRESHOLD` to 0.5
+- Decrease `FACE_CONFIDENCE_THRESHOLD` to 0.35
 - Add more reference images with similar angles/lighting
 
 If processing is too slow:

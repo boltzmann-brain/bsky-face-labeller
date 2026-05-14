@@ -27,12 +27,18 @@ MAX_FACES_TO_PROCESS = int(os.getenv('MAX_FACES_TO_PROCESS', '50'))
 # {person_name: [512-dim L2-normalized numpy arrays]}
 reference_embeddings: dict[str, list[np.ndarray]] = {}
 
-face_analyzer = FaceAnalysis(
-    name='buffalo_l',
-    root=MODELS_DIR,
-    providers=['CPUExecutionProvider'],
-)
-face_analyzer.prepare(ctx_id=0, det_size=(1024, 1024))
+try:
+    face_analyzer = FaceAnalysis(
+        name='buffalo_l',
+        root=MODELS_DIR,
+        providers=['CPUExecutionProvider'],
+    )
+    face_analyzer.prepare(ctx_id=0, det_size=(1024, 1024))
+except Exception as e:
+    import sys
+    print(f"FATAL: Failed to initialize InsightFace buffalo_l model: {e}", file=sys.stderr)
+    print("Ensure the model can be downloaded to python-service/models/ on first run.", file=sys.stderr)
+    sys.exit(1)
 
 
 def _normalize(v: np.ndarray) -> np.ndarray | None:
