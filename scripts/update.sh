@@ -20,7 +20,7 @@ npm install
 
 # Update Python dependencies
 echo "Updating Python dependencies..."
-pip3 install --break-system-packages -r python-service/requirements.txt
+pip3 install --break-system-packages --ignore-installed -r python-service/requirements.txt
 
 # Restart services
 echo "Restarting services..."
