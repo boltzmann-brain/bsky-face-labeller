@@ -10,7 +10,6 @@
     "lint:fix": "npx eslint --fix .",
     "set-posts": "npx tsx src/set-posts.ts",
     "set-labels": "npx tsx src/set-labels.ts",
-    "download-models": "npx tsx src/download-models.ts",
     "prepare": "echo 'Skipping husky install'"
   },
   "lint-staged": {
@@ -35,11 +34,8 @@
     "@skyware/bot": "^0.3.7",
     "@skyware/jetstream": "^0.2.0",
     "@skyware/labeler": "^0.1.13",
-    "@tensorflow/tfjs-node": "^4.20.0",
-    "@vladmandic/face-api": "^1.7.13",
     "axios": "^1.13.2",
     "better-sqlite3": "^12.6.2",
-    "canvas": "^2.11.2",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "form-data": "^4.0.5",
