@@ -35,17 +35,19 @@ face_analyzer = FaceAnalysis(
 face_analyzer.prepare(ctx_id=0, det_size=(1024, 1024))
 
 
+def _normalize(v: np.ndarray) -> np.ndarray | None:
+    """Return L2-normalized vector, or None if the vector is zero."""
+    norm = np.linalg.norm(v)
+    return v / norm if norm > 0 else None
+
+
 def get_face_embedding(image_array: np.ndarray) -> np.ndarray | None:
     """Return the 512-dim L2-normalized ArcFace embedding for the largest detected face, or None."""
     faces = face_analyzer.get(image_array)
     if not faces:
         return None
     largest = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
-    embedding = largest.embedding
-    norm = np.linalg.norm(embedding)
-    if norm == 0:
-        return None
-    return embedding / norm
+    return _normalize(largest.embedding)
 
 
 def load_reference_faces() -> None:
@@ -103,6 +105,10 @@ def detect_faces():
     if 'image' not in request.files:
         return jsonify({'error': 'No image provided'}), 400
 
+    if not reference_embeddings:
+        logger.warning("No reference embeddings loaded — returning empty matches")
+        return jsonify({'matches': []})
+
     try:
         image_bytes = request.files['image'].read()
         image_array = np.array(Image.open(io.BytesIO(image_bytes)).convert('RGB'))
@@ -121,9 +127,9 @@ def detect_faces():
 
         matches = []
         for face in faces:
-            raw_emb = face.embedding
-            emb_norm = np.linalg.norm(raw_emb)
-            face_emb = raw_emb / emb_norm if emb_norm != 0 else raw_emb
+            face_emb = _normalize(face.embedding)
+            if face_emb is None:
+                continue
             best_person = None
             best_similarity = -1.0
 
