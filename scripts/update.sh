@@ -8,7 +8,7 @@ echo ""
 
 # Stop services
 echo "Stopping services..."
-pm2 stop labeler python-service
+pm2 stop labeler python-service-1 python-service-2
 
 # Pull latest changes
 echo "Pulling latest changes from GitHub..."
@@ -20,11 +20,11 @@ npm install
 
 # Update Python dependencies
 echo "Updating Python dependencies..."
-pip3 install --user -r python-service/requirements.txt
+pip3 install --break-system-packages -r python-service/requirements.txt
 
 # Restart services
 echo "Restarting services..."
-pm2 restart labeler python-service
+pm2 restart labeler python-service-1 python-service-2
 
 echo ""
 echo "✓ Update complete!"

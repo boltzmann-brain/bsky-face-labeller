@@ -17,17 +17,22 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_DIR"
 
-# Start Python face detection service
-echo "Starting Python face detection service..."
-pm2 start python-service/face_service.py \
-    --name python-service \
+# Start Python face detection services (two instances for load balancing)
+echo "Starting Python face detection services..."
+PORT=5001 pm2 start python-service/face_service.py \
+    --name python-service-1 \
+    --interpreter python3 \
+    --log python-service.log \
+    --time
+PORT=5002 pm2 start python-service/face_service.py \
+    --name python-service-2 \
     --interpreter python3 \
     --log python-service.log \
     --time
 
-# Wait for Python service to start
-echo "Waiting for Python service to initialize..."
-sleep 3
+# Wait for Python services to start (longer on first run — downloads buffalo_l models ~350MB)
+echo "Waiting for Python services to initialize (first run downloads models, may take a minute)..."
+sleep 5
 
 # Start Node.js labeler
 echo "Starting Node.js labeler..."
@@ -57,7 +62,8 @@ echo "  pm2 status"
 echo ""
 echo "View logs:"
 echo "  pm2 logs"
-echo "  pm2 logs python-service"
+echo "  pm2 logs python-service-1"
+echo "  pm2 logs python-service-2"
 echo "  pm2 logs labeler"
 echo ""
 echo "Stop services:"

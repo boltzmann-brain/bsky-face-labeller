@@ -51,7 +51,8 @@ echo "Recent Logs (last 20 lines):"
 echo "----------------------------"
 echo ""
 echo "Python Service:"
-pm2 logs python-service --lines 10 --nostream
+pm2 logs python-service-1 --lines 5 --nostream
+pm2 logs python-service-2 --lines 5 --nostream
 echo ""
 echo "Labeler:"
 pm2 logs labeler --lines 10 --nostream
