@@ -1,4 +1,5 @@
 flask
-face-recognition
-numpy
+insightface
+onnxruntime
+numpy<2
 Pillow
