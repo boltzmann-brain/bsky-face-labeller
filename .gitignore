@@ -9,6 +9,8 @@ bun.lockb
 
 # Face detection runtime files
 models/
+python-service/venv/
+python-service/models/
 python-service.pid
 python-service.log
 cursor.txt

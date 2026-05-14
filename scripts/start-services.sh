@@ -19,14 +19,20 @@ cd "$PROJECT_DIR"
 
 # Start Python face detection services (two instances for load balancing)
 echo "Starting Python face detection services..."
+VENV_PYTHON="$PROJECT_DIR/python-service/venv/bin/python"
+if [ ! -f "$VENV_PYTHON" ]; then
+    echo "Error: Python venv not found at $VENV_PYTHON"
+    echo "Run: python3 -m venv python-service/venv && python-service/venv/bin/pip install -r python-service/requirements.txt"
+    exit 1
+fi
 PORT=5001 pm2 start python-service/face_service.py \
     --name python-service-1 \
-    --interpreter python3 \
+    --interpreter "$VENV_PYTHON" \
     --log python-service.log \
     --time
 PORT=5002 pm2 start python-service/face_service.py \
     --name python-service-2 \
-    --interpreter python3 \
+    --interpreter "$VENV_PYTHON" \
     --log python-service.log \
     --time
 

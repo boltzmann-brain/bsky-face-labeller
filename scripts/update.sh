@@ -18,9 +18,9 @@ git pull
 echo "Updating Node.js dependencies..."
 npm install
 
-# Update Python dependencies
+# Update Python dependencies (uses venv to avoid system package conflicts)
 echo "Updating Python dependencies..."
-pip3 install --break-system-packages --ignore-installed -r python-service/requirements.txt
+python-service/venv/bin/pip install -r python-service/requirements.txt
 
 # Restart services
 echo "Restarting services..."
