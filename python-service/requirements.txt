@@ -1,5 +1,6 @@
 flask
 insightface
 onnxruntime
+# numpy<2 required for onnxruntime C extension compatibility
 numpy<2
 Pillow

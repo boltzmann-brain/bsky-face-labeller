@@ -3,165 +3,143 @@
 Face Detection Microservice
 
 Provides face detection and recognition API for the Bluesky labeler.
+Uses InsightFace (ArcFace + RetinaFace) for high-accuracy face recognition.
 """
 
-import os
-import face_recognition
-import numpy as np
-from flask import Flask, request, jsonify
-from PIL import Image
 import io
 import logging
+import os
+
+import numpy as np
+from flask import Flask, jsonify, request
+from insightface.app import FaceAnalysis
+from PIL import Image
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Store reference face encodings in memory
-reference_encodings = {}
 REFERENCE_FACES_DIR = os.path.join(os.path.dirname(__file__), '..', 'reference-faces')
-CONFIDENCE_THRESHOLD = float(os.getenv('FACE_CONFIDENCE_THRESHOLD', '0.6'))
+MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
+SIMILARITY_THRESHOLD = float(os.getenv('FACE_CONFIDENCE_THRESHOLD', '0.4'))
 MAX_FACES_TO_PROCESS = int(os.getenv('MAX_FACES_TO_PROCESS', '50'))
 
+# {person_name: [512-dim L2-normalized numpy arrays]}
+reference_embeddings: dict[str, list[np.ndarray]] = {}
 
-def load_reference_faces():
-    """Load all reference face encodings from the reference-faces directory"""
+face_analyzer = FaceAnalysis(
+    name='buffalo_l',
+    root=MODELS_DIR,
+    providers=['CPUExecutionProvider'],
+)
+face_analyzer.prepare(ctx_id=0, det_size=(1024, 1024))
+
+
+def get_face_embedding(image_array: np.ndarray) -> np.ndarray | None:
+    """Return the 512-dim L2-normalized ArcFace embedding for the largest detected face, or None."""
+    faces = face_analyzer.get(image_array)
+    if not faces:
+        return None
+    largest = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+    embedding = largest.embedding
+    norm = np.linalg.norm(embedding)
+    if norm == 0:
+        return None
+    return embedding / norm
+
+
+def load_reference_faces() -> None:
+    """Load all reference face embeddings from the reference-faces directory."""
     logger.info(f"Loading reference faces from {REFERENCE_FACES_DIR}...")
 
     if not os.path.exists(REFERENCE_FACES_DIR):
         logger.warning(f"Reference faces directory not found: {REFERENCE_FACES_DIR}")
         return
 
-    # Iterate through person directories
-    for person_name in os.listdir(REFERENCE_FACES_DIR):
+    for person_name in sorted(os.listdir(REFERENCE_FACES_DIR)):
         person_dir = os.path.join(REFERENCE_FACES_DIR, person_name)
-
         if not os.path.isdir(person_dir):
             continue
 
         logger.info(f"Loading reference faces for {person_name}...")
-        encodings = []
+        embeddings: list[np.ndarray] = []
 
-        # Load all images for this person
-        for image_file in os.listdir(person_dir):
+        for image_file in sorted(os.listdir(person_dir)):
             if not image_file.lower().endswith(('.jpg', '.jpeg', '.png')):
                 continue
 
             image_path = os.path.join(person_dir, image_file)
-
             try:
-                # Load image and get face encoding
-                image = face_recognition.load_image_file(image_path)
-                face_encodings = face_recognition.face_encodings(image)
-
-                if len(face_encodings) > 0:
-                    encodings.append(face_encodings[0])
+                pil_image = Image.open(image_path).convert('RGB')
+                embedding = get_face_embedding(np.array(pil_image))
+                if embedding is not None:
+                    embeddings.append(embedding)
                     logger.info(f"  ✓ Loaded {person_name}/{image_file}")
                 else:
                     logger.warning(f"  ✗ No face found in {person_name}/{image_file}")
-
             except Exception as e:
                 logger.error(f"  ✗ Error loading {person_name}/{image_file}: {e}")
 
-        if encodings:
-            reference_encodings[person_name] = encodings
-            logger.info(f"Loaded {len(encodings)} face encodings for {person_name}")
+        if embeddings:
+            reference_embeddings[person_name] = embeddings
+            logger.info(f"Loaded {len(embeddings)} face embeddings for {person_name}")
         else:
-            logger.warning(f"No valid face encodings loaded for {person_name}")
+            logger.warning(f"No valid face embeddings loaded for {person_name}")
 
-    logger.info(f"Total people loaded: {len(reference_encodings)}")
+    logger.info(f"Total people loaded: {len(reference_embeddings)}")
 
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'people_loaded': list(reference_encodings.keys()),
-        'total_encodings': sum(len(encs) for encs in reference_encodings.values())
+        'people_loaded': list(reference_embeddings.keys()),
+        'total_encodings': sum(len(embs) for embs in reference_embeddings.values()),
     })
 
 
 @app.route('/detect', methods=['POST'])
 def detect_faces():
-    """
-    Detect and recognize faces in an uploaded image
-
-    Returns:
-        {
-            "matches": [
-                {"person": "trump", "confidence": 0.85},
-                ...
-            ]
-        }
-    """
     if 'image' not in request.files:
         return jsonify({'error': 'No image provided'}), 400
 
     try:
-        # Read image from request
-        image_file = request.files['image']
-        image_bytes = image_file.read()
+        image_bytes = request.files['image'].read()
+        image_array = np.array(Image.open(io.BytesIO(image_bytes)).convert('RGB'))
 
-        # Convert to PIL Image then to numpy array
-        pil_image = Image.open(io.BytesIO(image_bytes))
+        faces = face_analyzer.get(image_array)
 
-        # Convert to RGB if needed
-        if pil_image.mode != 'RGB':
-            pil_image = pil_image.convert('RGB')
-
-        # Convert to numpy array
-        # Note: Image resizing is handled by the Node.js service before sending
-        image_array = np.array(pil_image)
-
-        # Detect faces in the image
-        face_locations = face_recognition.face_locations(image_array)
-
-        if not face_locations:
+        if not faces:
             logger.info("No faces detected in image")
             return jsonify({'matches': []})
 
-        logger.info(f"Detected {len(face_locations)} face(s) in image")
+        logger.info(f"Detected {len(faces)} face(s) in image")
 
-        # Skip images with too many faces (crowd photos, mosaics) to prevent OOM
-        if len(face_locations) > MAX_FACES_TO_PROCESS:
-            logger.warning(f"Skipping image with {len(face_locations)} faces (max: {MAX_FACES_TO_PROCESS})")
+        if len(faces) > MAX_FACES_TO_PROCESS:
+            logger.warning(f"Skipping image with {len(faces)} faces (max: {MAX_FACES_TO_PROCESS})")
             return jsonify({'matches': [], 'skipped': True, 'reason': 'too_many_faces'})
 
-        # Get face encodings
-        face_encodings = face_recognition.face_encodings(image_array, face_locations)
-
-        # Match against reference faces
         matches = []
+        for face in faces:
+            raw_emb = face.embedding
+            emb_norm = np.linalg.norm(raw_emb)
+            face_emb = raw_emb / emb_norm if emb_norm != 0 else raw_emb
+            best_person = None
+            best_similarity = -1.0
 
-        for face_encoding in face_encodings:
-            best_match = None
-            best_distance = float('inf')
+            for person_name, ref_embeddings_list in reference_embeddings.items():
+                # Cosine similarity: dot product of L2-normalized vectors
+                person_best = max(float(np.dot(face_emb, ref_emb)) for ref_emb in ref_embeddings_list)
+                if person_best > best_similarity:
+                    best_similarity = person_best
+                    best_person = person_name
 
-            # Compare against all reference faces
-            for person_name, ref_encodings in reference_encodings.items():
-                # Compare against all encodings for this person
-                distances = face_recognition.face_distance(ref_encodings, face_encoding)
-                min_distance = np.min(distances)
+            if best_person and best_similarity >= SIMILARITY_THRESHOLD:
+                matches.append({'person': best_person, 'confidence': round(best_similarity, 3)})
+                logger.info(f"Match found: {best_person} (similarity: {best_similarity:.3f})")
 
-                # Lower distance = better match
-                if min_distance < best_distance:
-                    best_distance = min_distance
-                    best_match = person_name
-
-            # Convert distance to confidence (0-1 scale)
-            # face_recognition uses 0.6 as default threshold
-            # We'll use: confidence = 1 - (distance / threshold)
-            if best_match and best_distance < CONFIDENCE_THRESHOLD:
-                confidence = 1.0 - (best_distance / CONFIDENCE_THRESHOLD)
-                matches.append({
-                    'person': best_match,
-                    'confidence': round(confidence, 3)
-                })
-                logger.info(f"Match found: {best_match} (confidence: {confidence:.3f}, distance: {best_distance:.3f})")
-
-        # Deduplicate matches (same person detected multiple times)
-        unique_matches = {}
+        # Deduplicate: one entry per person, keep highest confidence
+        unique_matches: dict[str, dict] = {}
         for match in matches:
             person = match['person']
             if person not in unique_matches or match['confidence'] > unique_matches[person]['confidence']:
@@ -175,9 +153,6 @@ def detect_faces():
 
 
 if __name__ == '__main__':
-    # Load reference faces on startup
     load_reference_faces()
-
-    # Start Flask server
     port = int(os.getenv('PORT', '5000'))
     app.run(host='0.0.0.0', port=port, debug=False)
