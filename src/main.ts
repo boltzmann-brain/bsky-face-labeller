@@ -20,12 +20,12 @@ import {
 } from './config.js';
 import { initializeFaceDetection, loadReferenceFaces } from './faceDetection.js';
 import { hasEnoughFollowers, initializeFollowerChecker } from './followerChecker.js';
-import { closeCache, evictOldEntries, getCacheStats } from './imageCache.js';
+import { closeCache, evictOldEntries, getCacheStats, getCachedResultByCid } from './imageCache.js';
 import { cleanOldPostLogs, closePostLog, logPost } from './postLog.js';
-import { hasImages, processPostImages } from './imageProcessor.js';
+import { extractBlobCids, hasImages, processPostImages } from './imageProcessor.js';
 import { labelPost, labelerServer } from './label.js';
 import logger from './logger.js';
-import { cacheSize, startMetricsServer } from './metrics.js';
+import { cacheSize, cidCacheHits, startMetricsServer } from './metrics.js';
 import { ProcessingQueue } from './queue.js';
 
 let cursor = 0;
@@ -181,25 +181,43 @@ async function main() {
   );
 
   jetstream.onCreate(WANTED_COLLECTION, async (event: CommitCreateEvent<typeof WANTED_COLLECTION>) => {
-    // Update heartbeat timestamp on every event
     lastEventTime = Date.now();
 
-    // Check if post has images first (quick check)
     if (!hasImages(event.commit?.record)) {
       return;
     }
 
-    // If PROCESS_ALL_POSTS is true, process everything
-    if (PROCESS_ALL_POSTS) {
-      processingQueue.enqueue(event);
-      return;
+    // CID pre-filter runs before the follower check and before any download.
+    // Even low-follower accounts get labeled when the image is already cached.
+    const cids = extractBlobCids(event.commit?.record);
+    if (cids.length > 0) {
+      const results = cids.map((cid) => getCachedResultByCid(cid));
+      if (results.every((r) => r !== null)) {
+        const detectedPeople = new Set<string>();
+        for (const r of results as NonNullable<ReturnType<typeof getCachedResultByCid>>[]) {
+          for (const person of r.detectedPeople) detectedPeople.add(person);
+        }
+        const labelsToApply = Array.from(detectedPeople);
+        const bskyUrl = `https://bsky.app/profile/${event.did}/post/${event.commit.rkey}`;
+        logPost(bskyUrl, labelsToApply);
+        if (labelsToApply.length > 0) {
+          const postUri = `at://${event.did}/${WANTED_COLLECTION}/${event.commit.rkey}`;
+          await labelPost(postUri, labelsToApply);
+          logger.info(`CID cache: labeled ${postUri} with: ${labelsToApply.join(', ')}`);
+        }
+        cidCacheHits.inc();
+        return;
+      }
     }
 
-    // Otherwise, check if the poster has enough followers
-    const hasFollowers = await hasEnoughFollowers(event.did);
-    if (hasFollowers) {
-      processingQueue.enqueue(event);
+    // CID not cached: apply follower filter before downloading.
+    // Low-follower accounts are skipped here — no download wasted.
+    if (!PROCESS_ALL_POSTS) {
+      const hasFollowers = await hasEnoughFollowers(event.did);
+      if (!hasFollowers) return;
     }
+
+    processingQueue.enqueue(event);
   });
 
   const metricsServer = startMetricsServer(METRICS_PORT);
