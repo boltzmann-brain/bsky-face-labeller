@@ -9,7 +9,6 @@ const DB_PATH = 'labels.db';
 export function setupDatabase() {
   const db = new Database(DB_PATH);
 
-  // Create image_cache table to store perceptual hashes and detection results
   db.exec(`
     CREATE TABLE IF NOT EXISTS image_cache (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,6 +31,14 @@ export function setupDatabase() {
     CREATE INDEX IF NOT EXISTS idx_post_log_processed_at ON post_log(processed_at);
     CREATE INDEX IF NOT EXISTS idx_post_log_labels ON post_log(labels);
   `);
+
+  // Migrate: add cid column if not present
+  const columns = db.pragma('table_info(image_cache)') as Array<{ name: string }>;
+  if (!columns.some((col) => col.name === 'cid')) {
+    db.exec('ALTER TABLE image_cache ADD COLUMN cid TEXT;');
+    logger.info('Migration: added cid column to image_cache');
+  }
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_image_cache_cid ON image_cache(cid);');
 
   logger.info('Database schema initialized');
   db.close();
