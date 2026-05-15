@@ -515,14 +515,8 @@
       return;
     }
 
-    // Apply the same follower filter as before (preserves existing semantics).
-    if (!PROCESS_ALL_POSTS) {
-      const hasFollowers = await hasEnoughFollowers(event.did);
-      if (!hasFollowers) return;
-    }
-
-    // Pre-queue CID filter: if every image in this post has a cached result,
-    // apply labels immediately without consuming a queue slot.
+    // CID pre-filter runs before the follower check and before any download.
+    // Even low-follower accounts get labeled when the image is already cached.
     const cids = extractBlobCids(event.commit?.record);
     if (cids.length > 0) {
       const results = cids.map((cid) => getCachedResultByCid(cid));
@@ -544,11 +538,18 @@
       }
     }
 
+    // CID not cached: apply follower filter before downloading.
+    // Low-follower accounts are skipped here — no download wasted.
+    if (!PROCESS_ALL_POSTS) {
+      const hasFollowers = await hasEnoughFollowers(event.did);
+      if (!hasFollowers) return;
+    }
+
     processingQueue.enqueue(event);
   });
   ```
 
-  The follower check runs first (as before), then the CID pre-filter, then enqueue. This preserves the existing filtering semantics: low-follower accounts are still skipped even if their images are cached.
+  Order: `hasImages` → CID check (all cached → label immediately) → follower filter (any CID uncached → skip if too few followers) → enqueue. Low-follower accounts benefit from the cache but are not downloaded when their images are new.
 
 - [ ] **Step 3: Verify TypeScript compiles**
 

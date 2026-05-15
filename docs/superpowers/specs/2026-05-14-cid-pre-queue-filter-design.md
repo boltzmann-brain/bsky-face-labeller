@@ -44,12 +44,14 @@ Accepts an optional `cid` parameter. When writing a new row (cache miss path), s
 
 ## Pre-Queue Check Flow
 
-In the Jetstream event handler (`main.ts`), after `hasImages()` and the follower check:
+In the Jetstream event handler (`main.ts`), after `hasImages()`:
 
 1. Extract blob CIDs from `event.commit.record.embed.images[*].image.ref.$link`.
 2. For each CID, call `getCachedResultByCid(cid)`.
-3. **All CIDs hit:** merge detected-people sets from all results, call `logPost` + `labelPost` with the merged labels, increment `cid_cache_hits_total`, return without enqueueing.
-4. **Any CID misses:** call `processingQueue.enqueue(event)` as today.
+3. **All CIDs hit:** merge detected-people sets from all results, call `logPost` + `labelPost` with the merged labels, increment `cid_cache_hits_total`, return without enqueueing. **No follower check needed** — the result is already known, so there is no download or detection to gate.
+4. **Any CID misses:** apply the follower filter. If the poster has too few followers (and `PROCESS_ALL_POSTS` is false), skip without downloading. If the poster passes the filter, enqueue as today.
+
+This makes the CID check the first real gate after `hasImages()`, before the follower network call. Low-follower accounts benefit from the cache (correct labeling) but are still skipped when their images are new (no wasted download).
 
 ## Queue Worker Changes (`imageProcessor.ts`)
 
