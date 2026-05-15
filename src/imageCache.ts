@@ -78,21 +78,72 @@ export function getCachedResult(hash: string): CachedResult | null {
 }
 
 /**
- * Store detection result in cache
+ * Get cached detection result by blob CID (content identifier).
+ * Used for the pre-queue fast path before downloading images.
  */
-export function cacheResult(hash: string, detectedPeople: string[]): void {
+export function getCachedResultByCid(cid: string): CachedResult | null {
   try {
     const db = getDb();
-    const stmt = db.prepare(`
-      INSERT INTO image_cache (phash, detected_people)
-      VALUES (?, ?)
-      ON CONFLICT(phash) DO UPDATE SET
-        detected_people = excluded.detected_people,
-        last_seen_at = CURRENT_TIMESTAMP,
-        seen_count = seen_count + 1
-    `);
+    const row = db
+      .prepare(
+        `SELECT detected_people, seen_count, last_seen_at
+         FROM image_cache
+         WHERE cid = ?`,
+      )
+      .get(cid) as { detected_people: string; seen_count: number; last_seen_at: string } | undefined;
 
-    stmt.run(hash, JSON.stringify(detectedPeople));
+    if (row) {
+      db.prepare(
+        `UPDATE image_cache
+         SET last_seen_at = CURRENT_TIMESTAMP, seen_count = seen_count + 1
+         WHERE cid = ?`,
+      ).run(cid);
+      return {
+        detectedPeople: JSON.parse(row.detected_people) as string[],
+        seenCount: row.seen_count,
+        lastSeenAt: row.last_seen_at,
+      };
+    }
+    return null;
+  } catch (error) {
+    logger.error(`Error getting cached result by CID: ${error}`);
+    return null;
+  }
+}
+
+/**
+ * Back-fill the cid column on an existing image_cache row identified by phash.
+ * Called after a phash hit inside the queue so future events for the same CID
+ * take the pre-queue fast path.
+ * Updates the cid value if a new one is provided.
+ */
+export function storeCid(cid: string, phash: string): void {
+  try {
+    const db = getDb();
+    db.prepare(
+      `UPDATE image_cache SET cid = ? WHERE phash = ?`,
+    ).run(cid, phash);
+  } catch (error) {
+    logger.error(`Error storing CID: ${error}`);
+  }
+}
+
+/**
+ * Store detection result in cache.
+ * Pass cid when available so the pre-queue CID filter can find this result next time.
+ */
+export function cacheResult(hash: string, detectedPeople: string[], cid?: string): void {
+  try {
+    const db = getDb();
+    db.prepare(
+      `INSERT INTO image_cache (phash, detected_people, cid)
+       VALUES (?, ?, ?)
+       ON CONFLICT(phash) DO UPDATE SET
+         detected_people = excluded.detected_people,
+         cid = COALESCE(image_cache.cid, excluded.cid),
+         last_seen_at = CURRENT_TIMESTAMP,
+         seen_count = seen_count + 1`,
+    ).run(hash, JSON.stringify(detectedPeople), cid ?? null);
   } catch (error) {
     logger.error(`Error caching result: ${error}`);
     // Don't throw - caching is not critical
