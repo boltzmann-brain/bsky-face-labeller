@@ -2,7 +2,7 @@ import { CommitCreateEvent } from '@skyware/jetstream';
 
 import { MAX_IMAGE_PROCESSING_TIME } from './config.js';
 import { detectFaces, downloadImageBlob } from './faceDetection.js';
-import { cacheResult, computePhash, getCachedResult } from './imageCache.js';
+import { cacheResult, computePhash, getCachedResult, storeCid } from './imageCache.js';
 import logger from './logger.js';
 import { cacheHits, cacheMisses } from './metrics.js';
 import { BlobRef } from './types.js';
@@ -16,6 +16,22 @@ export function hasImages(record: any): boolean {
     Array.isArray(record.embed.images) &&
     record.embed.images.length > 0
   );
+}
+
+/**
+ * Extract blob CIDs from a post record's embed images.
+ * Returns the CID strings without downloading any content.
+ */
+export function extractBlobCids(record: any): string[] {
+  if (!hasImages(record)) return [];
+  const cids: string[] = [];
+  for (const img of record.embed.images) {
+    const link = img.image?.ref?.$link;
+    if (typeof link === 'string') {
+      cids.push(link);
+    }
+  }
+  return cids;
 }
 
 /**
@@ -88,6 +104,7 @@ async function processSingleImage(
   index: number,
 ): Promise<{ person: string; confidence: number }[]> {
   const startTime = Date.now();
+  const cid = blob.ref.$link;
 
   try {
     // Download the image
@@ -103,21 +120,16 @@ async function processSingleImage(
     const phashTime = Date.now() - phashStart;
     logger.info(`Image ${index + 1} phash: ${hash} (${phashTime}ms)`);
 
-    // Check cache
+    // Check cache by phash
     const cachedResult = getCachedResult(hash);
     if (cachedResult) {
       cacheHits.inc();
       logger.info(
         `Cache hit for image ${index + 1}! Previously seen ${cachedResult.seenCount} times. Detected: ${cachedResult.detectedPeople.length > 0 ? cachedResult.detectedPeople.join(', ') : 'none'}`,
       );
-
-      // Convert cached people to match format
-      const matches = cachedResult.detectedPeople.map((person) => ({
-        person,
-        confidence: 1.0, // Cached results are considered 100% confident
-      }));
-
-      return matches;
+      // Back-fill CID so next occurrence is caught pre-queue
+      storeCid(hash, cid);
+      return cachedResult.detectedPeople.map((person) => ({ person, confidence: 1.0 }));
     }
 
     // Cache miss - perform face detection
@@ -135,9 +147,9 @@ async function processSingleImage(
       logger.info(`No recognized faces in image ${index + 1} (${detectionTime}ms)`);
     }
 
-    // Store result in cache
+    // Store result with CID so pre-queue filter picks it up next time
     const detectedPeople = matches.map((m) => m.person);
-    cacheResult(hash, detectedPeople);
+    cacheResult(hash, detectedPeople, cid);
 
     return matches;
   } catch (error) {
