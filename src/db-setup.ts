@@ -14,6 +14,7 @@ export function setupDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       phash TEXT NOT NULL UNIQUE,
       detected_people TEXT NOT NULL,
+      cid TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       seen_count INTEGER DEFAULT 1
