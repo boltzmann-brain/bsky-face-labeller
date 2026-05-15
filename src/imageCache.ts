@@ -115,13 +115,13 @@ export function getCachedResultByCid(cid: string): CachedResult | null {
  * Back-fill the cid column on an existing image_cache row identified by phash.
  * Called after a phash hit inside the queue so future events for the same CID
  * take the pre-queue fast path.
- * Updates the cid value if a new one is provided.
+ * No-op if the row already has a cid set.
  */
 export function storeCid(cid: string, phash: string): void {
   try {
     const db = getDb();
     db.prepare(
-      `UPDATE image_cache SET cid = ? WHERE phash = ?`,
+      `UPDATE image_cache SET cid = ? WHERE phash = ? AND cid IS NULL`,
     ).run(cid, phash);
   } catch (error) {
     logger.error(`Error storing CID: ${error}`);
