@@ -44,7 +44,7 @@ async function testCidCache() {
   // Create a new cache entry without a cid (e.g., from offline detection)
   const phash2 = `test_phash2_${ts}`;
   cacheResult(phash2, people); // No cid provided
-  storeCid(cid2, phash2); // Back-fill the cid
+  storeCid(phash2, cid2); // Back-fill the cid
   const hit2 = getCachedResultByCid(cid2);
   if (!hit2) {
     logger.error('FAIL: expected cache hit after storeCid');
@@ -58,7 +58,7 @@ async function testCidCache() {
 
   // Test 4: storeCid is a no-op when cid already set (no crash)
   logger.info('\n--- Test 4: storeCid is idempotent ---');
-  storeCid(cid1, phash1); // cid already set to cid1 on phash1
+  storeCid(phash1, cid1); // cid already set to cid1 on phash1
   const hit3 = getCachedResultByCid(cid1);
   if (!hit3) {
     logger.error('FAIL: lost cid1 after duplicate storeCid call');

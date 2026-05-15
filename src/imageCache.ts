@@ -117,7 +117,7 @@ export function getCachedResultByCid(cid: string): CachedResult | null {
  * take the pre-queue fast path.
  * No-op if the row already has a cid set.
  */
-export function storeCid(cid: string, phash: string): void {
+export function storeCid(phash: string, cid: string): void {
   try {
     const db = getDb();
     db.prepare(
