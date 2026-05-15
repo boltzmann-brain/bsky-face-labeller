@@ -26,9 +26,12 @@ export function extractBlobCids(record: any): string[] {
   if (!hasImages(record)) return [];
   const cids: string[] = [];
   for (const img of record.embed.images) {
-    const link = img.image?.ref?.$link;
-    if (typeof link === 'string') {
-      cids.push(link);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (img.image?.$type === 'blob') {
+      const link = img.image.ref?.$link;
+      if (typeof link === 'string') {
+        cids.push(link);
+      }
     }
   }
   return cids;

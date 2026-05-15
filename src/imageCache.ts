@@ -14,6 +14,10 @@ interface CachedResult {
 // Lazy-initialize database connection
 let db: Database.Database | null = null;
 
+// Module-level prepared statements for the hot-path CID lookup (lazy-initialized)
+let getByCidStmt: ReturnType<Database.Database['prepare']> | null = null;
+let updateByCidSeenStmt: ReturnType<Database.Database['prepare']> | null = null;
+
 function getDb(): Database.Database {
   if (!db) {
     db = new Database(DB_PATH);
@@ -84,20 +88,23 @@ export function getCachedResult(hash: string): CachedResult | null {
 export function getCachedResultByCid(cid: string): CachedResult | null {
   try {
     const db = getDb();
-    const row = db
-      .prepare(
-        `SELECT detected_people, seen_count, last_seen_at
-         FROM image_cache
-         WHERE cid = ?`,
-      )
-      .get(cid) as { detected_people: string; seen_count: number; last_seen_at: string } | undefined;
+    getByCidStmt ??= db.prepare(
+      `SELECT detected_people, seen_count, last_seen_at
+       FROM image_cache
+       WHERE cid = ?`,
+    );
+    updateByCidSeenStmt ??= db.prepare(
+      `UPDATE image_cache
+       SET last_seen_at = CURRENT_TIMESTAMP, seen_count = seen_count + 1
+       WHERE cid = ?`,
+    );
+
+    const row = getByCidStmt.get(cid) as
+      | { detected_people: string; seen_count: number; last_seen_at: string }
+      | undefined;
 
     if (row) {
-      db.prepare(
-        `UPDATE image_cache
-         SET last_seen_at = CURRENT_TIMESTAMP, seen_count = seen_count + 1
-         WHERE cid = ?`,
-      ).run(cid);
+      updateByCidSeenStmt.run(cid);
       return {
         detectedPeople: JSON.parse(row.detected_people) as string[],
         seenCount: row.seen_count,
@@ -216,5 +223,7 @@ export function closeCache(): void {
   if (db) {
     db.close();
     db = null;
+    getByCidStmt = null;
+    updateByCidSeenStmt = null;
   }
 }

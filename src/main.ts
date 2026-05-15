@@ -188,7 +188,9 @@ async function main() {
     }
 
     // CID pre-filter runs before the follower check and before any download.
-    // Even low-follower accounts get labeled when the image is already cached.
+    // If we've already identified who's in this image, labeling is instantaneous and
+    // correct regardless of account size — the result is known, no resources are spent.
+    // Low-follower accounts are still filtered below for *new* (uncached) images.
     const cids = extractBlobCids(event.commit.record);
     if (cids.length > 0) {
       const results = cids.map((cid) => getCachedResultByCid(cid));
