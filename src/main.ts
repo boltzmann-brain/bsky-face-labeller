@@ -183,18 +183,18 @@ async function main() {
   jetstream.onCreate(WANTED_COLLECTION, async (event: CommitCreateEvent<typeof WANTED_COLLECTION>) => {
     lastEventTime = Date.now();
 
-    if (!hasImages(event.commit?.record)) {
+    if (!hasImages(event.commit.record)) {
       return;
     }
 
     // CID pre-filter runs before the follower check and before any download.
     // Even low-follower accounts get labeled when the image is already cached.
-    const cids = extractBlobCids(event.commit?.record);
+    const cids = extractBlobCids(event.commit.record);
     if (cids.length > 0) {
       const results = cids.map((cid) => getCachedResultByCid(cid));
       if (results.every((r) => r !== null)) {
         const detectedPeople = new Set<string>();
-        for (const r of results as NonNullable<ReturnType<typeof getCachedResultByCid>>[]) {
+        for (const r of results) {
           for (const person of r.detectedPeople) detectedPeople.add(person);
         }
         const labelsToApply = Array.from(detectedPeople);

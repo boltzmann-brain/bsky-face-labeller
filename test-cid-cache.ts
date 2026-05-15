@@ -8,6 +8,7 @@ import { cacheResult, getCachedResultByCid, storeCid } from './src/imageCache.js
 import logger from './src/logger.js';
 
 async function testCidCache() {
+  await Promise.resolve();
   logger.info('=== Testing CID Cache Operations ===');
 
   const ts = Date.now();

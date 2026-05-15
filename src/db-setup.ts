@@ -34,7 +34,7 @@ export function setupDatabase() {
   `);
 
   // Migrate: add cid column if not present
-  const columns = db.pragma('table_info(image_cache)') as Array<{ name: string }>;
+  const columns = db.pragma('table_info(image_cache)') as { name: string }[];
   if (!columns.some((col) => col.name === 'cid')) {
     db.exec('ALTER TABLE image_cache ADD COLUMN cid TEXT;');
     logger.info('Migration: added cid column to image_cache');
