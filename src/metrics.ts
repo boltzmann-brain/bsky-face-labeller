@@ -52,6 +52,12 @@ export const cacheMisses = new Counter({
   registers: [register],
 });
 
+export const cidCacheHits = new Counter({
+  name: 'cid_cache_hits_total',
+  help: 'Posts that bypassed the queue via pre-queue CID cache hit',
+  registers: [register],
+});
+
 export const cacheSize = new Gauge({
   name: 'image_cache_size',
   help: 'Total number of entries in the image cache',
