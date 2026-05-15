@@ -289,6 +289,16 @@ Metrics are available at `http://localhost:4101/metrics`:
 - `image_cache_misses_total` - Images that required full face detection (cache miss)
 - `image_cache_size` - Total entries in cache database
 
+### Accuracy Sampling
+
+Sample 25 labeled and 25 unlabeled posts from the last 24 hours to manually review detection quality:
+
+```bash
+npx tsx scripts/sample-accuracy.ts
+```
+
+Output is written to `accuracy-samples/YYYY-MM-DD.txt`. Review the URLs to check for false positives (posts incorrectly labeled) and false negatives (posts that should have been labeled but weren't).
+
 ### Querying Logs
 
 Use PM2 or grep to search logs for specific events:
