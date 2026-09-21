@@ -36,10 +36,10 @@ echo -e "${GREEN}[1/7] Updating system packages...${NC}"
 sudo apt update
 sudo apt upgrade -y
 
-# Install Node.js 20.x
+# Install Node.js 22.x
 echo -e "${GREEN}[2/7] Installing Node.js...${NC}"
 if ! command -v node &> /dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
     sudo apt install -y nodejs
 else
     echo "Node.js already installed ($(node --version))"
@@ -72,9 +72,12 @@ fi
 echo -e "${GREEN}[6/7] Installing Node.js dependencies...${NC}"
 npm install
 
-# Install Python dependencies
+# Install Python dependencies into the venv that start-services.sh expects
 echo -e "${GREEN}[7/7] Installing Python dependencies...${NC}"
-pip3 install --user -r python-service/requirements.txt
+if [ ! -f "python-service/venv/bin/python" ]; then
+    python3 -m venv python-service/venv
+fi
+python-service/venv/bin/pip install -r python-service/requirements.txt
 
 # Create .env file if it doesn't exist
 if [ ! -f ".env" ]; then
