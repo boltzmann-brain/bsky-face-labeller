@@ -1,0 +1,14 @@
+# Example Caddyfile for exposing the labeler's XRPC endpoint over HTTPS.
+# Install caddy (apt install caddy), copy this to /etc/caddy/Caddyfile,
+# replace the domain with your labeler's public hostname, point its DNS
+# A record at this server, then: sudo systemctl reload caddy
+# Caddy obtains and renews a Let's Encrypt certificate automatically.
+
+your-labeler-domain.example.com {
+    @websockets {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @websockets localhost:4100
+    reverse_proxy localhost:4100
+}

@@ -57,6 +57,11 @@ else
     echo "PM2 already installed"
 fi
 
+# Rotate PM2 logs — unrotated labeler.log can grow to tens of GB
+pm2 install pm2-logrotate || true
+pm2 set pm2-logrotate:max_size 50M || true
+pm2 set pm2-logrotate:retain 5 || true
+
 # Clone repository if not in it
 echo -e "${GREEN}[5/7] Setting up application...${NC}"
 if [ ! -f "package.json" ]; then
@@ -74,14 +79,20 @@ npm install
 
 # Install Python dependencies into the venv that start-services.sh expects
 echo -e "${GREEN}[7/7] Installing Python dependencies...${NC}"
-if [ ! -f "python-service/venv/bin/python" ]; then
-    python3 -m venv python-service/venv
+# uv manages its own Python — the system python3 may be too new for
+# numpy<2/onnxruntime wheels (e.g. Python 3.14 on Ubuntu 26.04)
+if ! command -v uv &> /dev/null; then
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
 fi
-python-service/venv/bin/pip install -r python-service/requirements.txt
+if [ ! -f "python-service/venv/bin/python" ]; then
+    uv venv python-service/venv --python 3.12
+fi
+uv pip install --python python-service/venv/bin/python -r python-service/requirements.txt
 # insightface pulls in opencv-python, which needs libGL — absent on headless
 # servers. Swap it for the headless build or the service crashes on import.
-python-service/venv/bin/pip uninstall -y opencv-python
-python-service/venv/bin/pip install opencv-python-headless
+uv pip uninstall --python python-service/venv/bin/python opencv-python || true
+uv pip install --python python-service/venv/bin/python opencv-python-headless
 
 # Create .env file if it doesn't exist
 if [ ! -f ".env" ]; then
