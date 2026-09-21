@@ -78,6 +78,10 @@ if [ ! -f "python-service/venv/bin/python" ]; then
     python3 -m venv python-service/venv
 fi
 python-service/venv/bin/pip install -r python-service/requirements.txt
+# insightface pulls in opencv-python, which needs libGL — absent on headless
+# servers. Swap it for the headless build or the service crashes on import.
+python-service/venv/bin/pip uninstall -y opencv-python
+python-service/venv/bin/pip install opencv-python-headless
 
 # Create .env file if it doesn't exist
 if [ ! -f ".env" ]; then
